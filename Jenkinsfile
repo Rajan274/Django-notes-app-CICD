@@ -1,29 +1,40 @@
-@Library('Shared')_
-pipeline{
-    agent { label 'dev-server'}
-    
+
+pipeline {
+    agent any
+
     stages{
-        stage("Code clone"){
+        stage("Code"){
             steps{
-                sh "whoami"
-            clone("https://github.com/Rajan274/Django-notes-app-CICD.git","main")
+                echo "This is cloning the code"
+                git url: "https://github.com/Rajan274/Django-notes-app-CICD.git" , branch: "main"
             }
         }
-        stage("Code Build"){
+         stage("Build"){
             steps{
-            dockerbuild("notes-app","latest")
+                echo "This is building the code"
+                sh "docker build -t notes-app:latest ."
             }
         }
-        stage("Push to DockerHub"){
+         stage("Pushing"){
             steps{
-                dockerpush("dockerHubCreds","notes-app","latest")
+                echo "This is pushing the code"
+                withCredentials([usernamePassword(
+                    'credentialsId': 'django-app',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh "docker login -u ${env.DOCKER_USER} -p ${env.DOCKER_PASS}"
+                    sh "docker image tag notes-app:latest ${env.DOCKER_USER}/notes-app:latest"
+                    sh "docker push ${env.DOCKER_USER}/notes-app:latest"
+                    }
             }
         }
-        stage("Deploy"){
+         stage("Deploy"){
             steps{
-                deploy()
+                echo "This is Deploy the code"
+                 sh 'docker compose down'
+                 sh 'docker compose up -d --build'
             }
         }
-        
     }
 }
